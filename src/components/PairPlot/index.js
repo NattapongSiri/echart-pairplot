@@ -1,5 +1,16 @@
+import { useCallback, useState } from "react"
 import ScatterChart from "../ScatterChart"
 export default function PairPlot({series, style}) {
+  const [hoverIndex, setHoverIndex] = useState()
+  const [hoverKeys, setHoverKeys] = useState([])
+  const hoverHandler = useCallback((keys, index) => {
+    setHoverKeys(keys)
+    setHoverIndex(index)
+  }, [setHoverIndex, setHoverKeys])
+  const leaveHandler = useCallback(index => {
+    setHoverKeys(undefined)
+    setHoverIndex(index)
+  }, [setHoverIndex, setHoverKeys])
   // let width = 100
   return <table style={style} cellSpacing={0}>
     <thead>
@@ -15,7 +26,9 @@ export default function PairPlot({series, style}) {
         (key, index) => <tr key={`row-header-${key}`}>
           <td>{key}</td>
           {Object.keys(series).map(
-            (anotherKey, anotherIndex) => anotherIndex >= index?<td><ScatterChart x={series[key]} y={series[anotherKey]}/></td>:<td />
+            (anotherKey, anotherIndex) => {
+              return anotherIndex >= index?<td key={`${key}/${anotherKey}`}><ScatterChart highlightIndex={hoverKeys.includes(key) || hoverKeys.includes(anotherKey)?hoverIndex:undefined} x={series[key]} y={series[anotherKey]} onHover={index => hoverHandler([key, anotherKey], index)} onLeft={index => leaveHandler(index)}/></td>:<td key={`${key}/${anotherKey}`} />
+            }
           )}
         </tr>
       )}

@@ -1,6 +1,6 @@
 import React, {useMemo} from 'react'
 import ReactECharts from 'echarts-for-react'
-export default function ScatterChart({x, y}) {
+export default function ScatterChart({x, y, highlightIndex, onHover, onLeft}) {
   let option = useMemo(() => {
     return {
       xAxis: {
@@ -19,10 +19,36 @@ export default function ScatterChart({x, y}) {
       },
       series: [{
         type: 'scatter',
-        seriesLayoutBy: 'row'
+        emphasis: {
+          itemStyle: {
+            color: 'red'
+          }
+        }
       }]
     }
   }, [x, y])
 
-  return <ReactECharts option={option} />
+  return <ReactECharts 
+    option={option} 
+    onChartReady={echarts => {
+      if (highlightIndex !== undefined) {
+        echarts.dispatchAction({
+          type: 'highlight',
+          dataIndex: highlightIndex
+        })
+      }
+    }}
+    onEvents={{
+      'mouseover': params => {
+        if (typeof onHover === "function") {
+          onHover(params.dataIndex)
+        }
+      },
+      'mouseout': params => {
+        if (typeof onLeft === "function") {
+          onLeft(params.dataIndex)
+        }
+      }
+    }}
+  />
 }
