@@ -1,6 +1,6 @@
 import React, {useCallback, useEffect, useMemo, useState, useRef} from 'react'
 import ReactECharts from 'echarts-for-react'
-export default function ScatterChart({id, x, y, highlightIndex, selectedIndex, onHover, onSelected}) {
+export default function ScatterChart({id, x, y, highlightIndex, selectedIndex, clusters, onHover, onSelected}) {
   let echarts = useRef()
   let [currentHighlightIndex, setCurrentHighlightIndex] = useState()
   useEffect(() => {
@@ -12,16 +12,15 @@ export default function ScatterChart({id, x, y, highlightIndex, selectedIndex, o
     }
     setCurrentHighlightIndex(highlightIndex)
   }, [currentHighlightIndex, highlightIndex, setCurrentHighlightIndex])
-  let [currentSelectedIndex, setCurrentSelectedIndex] = useState()
-  useEffect(() => {
-    if (currentSelectedIndex !== selectedIndex && echarts.current !== null) {
-      echarts.current.getEchartsInstance().dispatchAction({
-        type: 'unselect',
-        dataIndex: currentSelectedIndex
-      })
+  let groups = useMemo(() => {
+    let arr = (new Array(x.length)).fill("-1")
+    for (let [clusterIndex, dataIndex] of Object.entries(selectedIndex)) {
+      for (let index of dataIndex) {
+        arr[index] = clusterIndex
+      }
     }
-    setCurrentSelectedIndex(selectedIndex)
-  }, [currentSelectedIndex, selectedIndex, setCurrentSelectedIndex])
+    return arr
+  }, [selectedIndex, x?.length])
   let option = useMemo(() => {
     return {
       xAxis: {
@@ -36,13 +35,16 @@ export default function ScatterChart({id, x, y, highlightIndex, selectedIndex, o
         throttleDelay: 50
       },
       dataset: {
+        dimensions: ["x", "y", "cluster"],
         source: {
           x,
-          y
+          y,
+          cluster: groups
         }
       },
       series: [{
         type: 'scatter',
+        // dimensions: ["x", "y"],
         emphasis: {
           itemStyle: {
             color: 'red'
@@ -63,9 +65,26 @@ export default function ScatterChart({id, x, y, highlightIndex, selectedIndex, o
             type: ['rect', 'polygon', 'keep', 'clear'],
           }
         }
-      }
+      },
+      visualMap: [{
+        type: 'piecewise',
+        dimension: 'cluster',
+        categories: [...Object.keys(selectedIndex)],
+        inRange: {
+          color: [...Object.keys(selectedIndex).map(index => clusters[index].color)]
+        },
+        outOfRange: {
+          color: '#5566ff'
+        }
+      }]
     }
-  }, [x, y])
+  }, [
+    x, 
+    y, 
+    groups, 
+    selectedIndex, 
+    clusters
+  ])
   let mouseOverHandler = useCallback(params => {
     setCurrentHighlightIndex(params.dataIndex)
     if (typeof onHover === "function") {
@@ -75,13 +94,14 @@ export default function ScatterChart({id, x, y, highlightIndex, selectedIndex, o
   let selectedHandler = useCallback(params => {
     if (typeof onSelected === "function" && params?.batch?.length > 0 && params.batch[0]?.selected?.length > 0) {
       onSelected(params.batch[0]?.selected[0]?.dataIndex)
-      setCurrentSelectedIndex(params.batch[0]?.selected[0]?.dataIndex)
     }
-  }, [onSelected, setCurrentSelectedIndex])
+  }, [
+    onSelected
+  ])
   let eventsHandler = useMemo(() => ({
     'mouseover': mouseOverHandler,
     'brushselected': selectedHandler
-  }), [id, mouseOverHandler, selectedHandler])
+  }), [mouseOverHandler, selectedHandler])
 
   useEffect(() => {
     if (highlightIndex !== undefined && echarts.current !== null) {
@@ -91,15 +111,6 @@ export default function ScatterChart({id, x, y, highlightIndex, selectedIndex, o
       })
     }
   }, [highlightIndex])
-  useEffect(() => {
-    if (selectedIndex?.length > 0 && echarts.current !== null) {
-      echarts.current.getEchartsInstance().dispatchAction({
-          type: 'select',
-          seriesIndex: 0,
-          dataIndex: selectedIndex
-      })
-    }
-  }, [selectedIndex])
 
   return <ReactECharts 
     ref={e => echarts.current = e}

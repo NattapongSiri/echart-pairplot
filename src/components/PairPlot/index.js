@@ -1,8 +1,8 @@
-import { useCallback, useState } from "react"
+import { useCallback, useReducer, useState } from "react"
 import { generateSequence } from "../../utils/data_generator"
 import ScatterChart from "../ScatterChart"
 
-function SeriesPlot({series, highlightIndex, selectedIndex, xName, yName, onHover, onSelected}) {
+function SeriesPlot({series, highlightIndex, selectedIndex, activeClusterIndex, clusters, xName, yName, onHover, onSelected}) {
   const hoverHandler = useCallback(index => {
     if (typeof onHover === "function") {
       onHover([xName, yName], index)
@@ -17,6 +17,8 @@ function SeriesPlot({series, highlightIndex, selectedIndex, xName, yName, onHove
     id={`${xName}-${yName}`}
     highlightIndex={highlightIndex} 
     selectedIndex={selectedIndex}
+    activeClusterIndex={activeClusterIndex}
+    clusters={clusters}
     x={series[xName]} 
     y={series[yName]} 
     onHover={hoverHandler} 
@@ -24,10 +26,15 @@ function SeriesPlot({series, highlightIndex, selectedIndex, xName, yName, onHove
   />
 }
 
-export default function PairPlot({series, style}) {
+export default function PairPlot({series, activeClusterIndex, clusters, style}) {
   const [hoverIndex, setHoverIndex] = useState()
   // const [hoverKeys, setHoverKeys] = useState([])
-  const [selectedIndex, setSelectedIndex] = useState()
+  const [selectedIndex, updateSelectedIndex] = useReducer((prevState, tobeMerge) => {
+    return {
+      ...prevState,
+      ...tobeMerge
+    }
+  }, {})
   // const [selectedKeys, setSelectedKeys] = useState([])
   const hoverHandler = useCallback((keys, index) => {
     // setHoverKeys(keys)
@@ -35,9 +42,10 @@ export default function PairPlot({series, style}) {
   }, [setHoverIndex])
   const selectedHandler = useCallback((keys, index) => {
     // setSelectedKeys(keys)
-    setSelectedIndex(index)
-  }, [setSelectedIndex])
-  const [brushId, setBrushId] = useState()
+    updateSelectedIndex({
+      [activeClusterIndex]: index
+    })
+  }, [activeClusterIndex, updateSelectedIndex])
   // let width = 100
   return <table style={style} cellSpacing={0}>
     <thead>
@@ -55,7 +63,7 @@ export default function PairPlot({series, style}) {
           <td>{key}</td>
           {Object.keys(series).map(
             (anotherKey, anotherIndex) => {
-              return anotherIndex >= index?<td key={`${key}/${anotherKey}`}><SeriesPlot series={series} highlightIndex={hoverIndex} selectedIndex={selectedIndex} xName={key} yName={anotherKey} onHover={hoverHandler} onSelected={selectedHandler}/></td>:<td key={`${key}/${anotherKey}`} />
+              return anotherIndex >= index?<td key={`${key}/${anotherKey}`}><SeriesPlot series={series} highlightIndex={hoverIndex} selectedIndex={selectedIndex} activeClusterIndex={activeClusterIndex} clusters={clusters} xName={key} yName={anotherKey} onHover={hoverHandler} onSelected={selectedHandler}/></td>:<td key={`${key}/${anotherKey}`} />
             }
           )}
           <td><SeriesPlot 
@@ -65,6 +73,8 @@ export default function PairPlot({series, style}) {
             }}
             highlightIndex={hoverIndex}
             selectedIndex={selectedIndex}
+            activeClusterIndex={activeClusterIndex}
+            clusters={clusters}
             xName="x"
             yName={key}
             onHover={hoverHandler}
